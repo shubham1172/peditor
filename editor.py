@@ -7,13 +7,16 @@ from utils import getch, ctrl_key, pexit, pprint, get_terminal_size
 
 def init():
     global _rows, _cols, cx, cy, \
-        fileLoaded, fileRows, roff, coff
+        fileLoaded, fileRows, roff, coff, \
+        file_name
     cx, cy = 0, 0   # curr cursor location
     _rows, _cols = get_terminal_size()
+    _rows -= 1      # status bar
     fileLoaded = False
     fileRows = []
     roff = 0
     coff = 0
+    file_name = None
 
 
 """ input """
@@ -90,7 +93,8 @@ def read_key():
     elif c == EditorKeys.HOME_KEY:
         cx = 0
     elif c == EditorKeys.END_KEY:
-        cx = len(fileRows[cy - roff])
+        if cy < len(fileRows):
+            cx = len(fileRows[cy])
 
 
 """ screen """
@@ -115,6 +119,7 @@ def refresh_screen():
     pprint("\x1b[2J")           # clear entire screen
     pprint("\x1b[H")            # reposition cursor
     draw_rows()
+    draw_status_bar()
     update_cursor()
     pprint("\x1b[?25h")         # show cursor
 
@@ -131,8 +136,17 @@ def draw_rows():
         if row == _rows//3 and not fileLoaded:
             pad_string = " "*((_cols - len(welcome_message)) // 2)
             pprint(pad_string, welcome_message)
-        if row < (_rows - 1):
-            pprint("\n")
+        pprint("\n")
+
+
+def draw_status_bar():
+    global file_name, _cols, fileRows
+    pprint("\x1b[7m")  # invert colors
+    s = file_name if file_name else "[No Name]"
+    display_string = "%s - %d lines" % (s[0:20], len(fileRows))
+    pprint(display_string)
+    pprint(" "*(_cols-len(display_string)))
+    pprint("\x1b[m")   # restore colors
 
 
 """ cursor """
@@ -140,6 +154,9 @@ def draw_rows():
 
 def move_cursor(c):
     global cx, cy, _rows, _cols, roff, coff, fileRows
+
+    row = None if cy >= len(fileRows) else fileRows[cy]
+
     if c == EditorKeys.ARROW_UP:
         if cy != 0:
             cy -= 1
@@ -151,16 +168,18 @@ def move_cursor(c):
             cx -= 1
         elif cy > 0:
             cy -= 1
-            cx = len(fileRows[cy - roff])
+            cx = len(fileRows[cy])
     elif c == EditorKeys.ARROW_RIGHT:
-        if (cy - roff) < len(fileRows) and cx < len(fileRows[cy - roff]):
+        if row and cx < len(fileRows[cy]):
             cx += 1
-        elif (cy - roff) < len(fileRows) and cy < len(fileRows):
+        elif row and cy < len(fileRows):
             cy += 1
             cx = 0
 
-    if (cy - roff) < len(fileRows) and cx > len(fileRows[cy - roff]):
-        cx = len(fileRows[cy - roff])
+    row = "" if cy >= len(fileRows) else fileRows[cy]
+
+    if cx > len(row):
+        cx = len(row)
 
 
 def update_cursor():
@@ -172,10 +191,11 @@ def update_cursor():
 
 
 def load_file(filename):
-    global fileLoaded, fileRows
+    global fileLoaded, fileRows, file_name
     try:
         with open(filename, 'r') as file:
             fileRows = file.read().split('\n')
         fileLoaded = True
+        file_name = filename
     except:
         pexit("error opening %s\n" % filename)
