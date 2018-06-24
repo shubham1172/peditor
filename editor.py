@@ -140,12 +140,14 @@ def draw_rows():
 
 
 def draw_status_bar():
-    global file_name, _cols, fileRows
+    global file_name, _cols, fileRows, cy
     pprint("\x1b[7m")  # invert colors
     s = file_name if file_name else "[No Name]"
-    display_string = "%s - %d lines" % (s[0:20], len(fileRows))
-    pprint(display_string)
-    pprint(" "*(_cols-len(display_string)))
+    left = "%s - %d lines" % (s[0:20], len(fileRows))
+    right = "%d/%d" % (cy + 1, len(fileRows))
+    pad = " "*(_cols-len(left)-len(right))
+    display_string = left + pad + right
+    pprint(display_string[0:_cols])
     pprint("\x1b[m")   # restore colors
 
 
@@ -161,7 +163,7 @@ def move_cursor(c):
         if cy != 0:
             cy -= 1
     elif c == EditorKeys.ARROW_DOWN:
-        if cy < len(fileRows):
+        if cy < len(fileRows) - 1:
             cy += 1
     elif c == EditorKeys.ARROW_LEFT:
         if cx != 0:
