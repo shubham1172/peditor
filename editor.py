@@ -1,6 +1,7 @@
 """
 editor.py: editor functions
 """
+import time
 from keys import EditorKeys
 from utils import getch, ctrl_key, pexit, pprint, get_terminal_size
 
@@ -8,15 +9,17 @@ from utils import getch, ctrl_key, pexit, pprint, get_terminal_size
 def init():
     global _rows, _cols, cx, cy, \
         fileLoaded, fileRows, roff, coff, \
-        file_name
+        file_name, status_message, status_message_time
     cx, cy = 0, 0   # curr cursor location
     _rows, _cols = get_terminal_size()
-    _rows -= 1      # status bar
+    _rows -= 2      # status and message bar
     fileLoaded = False
     fileRows = []
     roff = 0
     coff = 0
     file_name = None
+    status_message = ""
+    status_message_time = 0
 
 
 """ input """
@@ -120,6 +123,7 @@ def refresh_screen():
     pprint("\x1b[H")            # reposition cursor
     draw_rows()
     draw_status_bar()
+    draw_message_bar()
     update_cursor()
     pprint("\x1b[?25h")         # show cursor
 
@@ -149,6 +153,20 @@ def draw_status_bar():
     display_string = left + pad + right
     pprint(display_string[0:_cols])
     pprint("\x1b[m")   # restore colors
+    pprint("\n")
+
+
+def set_status_message(*args):
+    global status_message, status_message_time
+    status_message = " ".join(args)
+    status_message_time = time.time()
+
+
+def draw_message_bar():
+    global status_message, status_message_time, _cols
+    pprint("\x1b[K")    # clear the line
+    if (time.time() - status_message_time) < 5:
+        pprint(status_message[0:_cols])
 
 
 """ cursor """
