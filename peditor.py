@@ -3,11 +3,14 @@
 """
 peditor.py: main entry point for peditor
 """
-from editor import init, read_key, refresh_screen
+import sys
+from editor import init, read_key, refresh_screen, load_file
 
 
 def main():
     init()
+    if len(sys.argv) >= 2:
+        load_file(sys.argv[1])
     while True:
         refresh_screen()
         read_key()

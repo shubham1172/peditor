@@ -4,11 +4,15 @@ editor.py: editor functions
 from keys import EditorKeys
 from utils import getch, ctrl_key, pexit, pprint, get_terminal_size
 
-
 def init():
-    global _rows, _cols, cx, cy
+    global _rows, _cols, cx, cy, \
+        fileLoaded, fileRows, roff, coff
     cx, cy = 0, 0   # curr cursor location
     _rows, _cols = get_terminal_size()
+    fileLoaded = False
+    fileRows = []
+    roff = 0
+    coff = 0
 
 
 """ input """
@@ -63,7 +67,7 @@ def raw_read():
 
 
 def read_key():
-    global _rows, _cols, cx, cy
+    global _rows, _cols, cx, cy, roff, fileRows
     c = raw_read()
     if c == ctrl_key('q'):
         pexit()
@@ -74,6 +78,9 @@ def read_key():
         move_cursor(c)
     elif c in (EditorKeys.PAGE_UP,
                EditorKeys.PAGE_DOWN):
+        if c == EditorKeys.PAGE_UP:
+            cy = roff
+
         times = _rows
         while times > 0:
             move_cursor(EditorKeys.ARROW_UP if c == EditorKeys.PAGE_UP
@@ -82,13 +89,27 @@ def read_key():
     elif c == EditorKeys.HOME_KEY:
         cx = 0
     elif c == EditorKeys.END_KEY:
-        cx = _cols - 1
+        cx = len(fileRows[cy - roff])
 
 
 """ screen """
 
 
+def scroll_editor():
+    global cy, roff, _rows, \
+            cx, coff, _cols
+    if cy < roff:
+        roff = cy
+    if cy >= (roff + _rows):
+        roff = cy - _rows + 1
+    if cx < coff:
+        coff = cx
+    if cx >= (coff + _cols):
+        coff = cx - _cols + 1
+
+
 def refresh_screen():
+    scroll_editor()
     pprint("\x1b[?25l")         # hide cursor
     pprint("\x1b[2J")           # clear entire screen
     pprint("\x1b[H")            # reposition cursor
@@ -98,11 +119,15 @@ def refresh_screen():
 
 
 def draw_rows():
-    global _rows, _cols
+    global _rows, _cols, fileLoaded, fileRows, roff, coff
     welcome_message = "peditor -- welcome"
     for row in range(_rows):
-        pprint("~")
-        if row == _rows//3:
+        file_row = row + roff
+        if not fileLoaded:
+            pprint("~ ")
+        if file_row < len(fileRows):
+            pprint(fileRows[file_row][coff:coff+_cols])
+        if row == _rows//3 and not fileLoaded:
             pad_string = " "*((_cols - len(welcome_message)) // 2)
             pprint(pad_string, welcome_message)
         if row < (_rows - 1):
@@ -113,21 +138,43 @@ def draw_rows():
 
 
 def move_cursor(c):
-    global cx, cy, _rows, _cols
+    global cx, cy, _rows, _cols, roff, coff, fileRows
     if c == EditorKeys.ARROW_UP:
         if cy != 0:
             cy -= 1
     elif c == EditorKeys.ARROW_DOWN:
-        if cy != (_rows - 1):
+        if cy < len(fileRows):
             cy += 1
     elif c == EditorKeys.ARROW_LEFT:
         if cx != 0:
             cx -= 1
+        elif cy > 0:
+            cy -= 1
+            cx = len(fileRows[cy - roff])
     elif c == EditorKeys.ARROW_RIGHT:
-        if cx != (_cols - 1):
+        if cx < len(fileRows[cy - roff]):
             cx += 1
+        elif cy < len(fileRows):
+            cy += 1
+            cx = 0
+
+    if cx > len(fileRows[cy - roff]):
+        cx = len(fileRows[cy - roff])
 
 
 def update_cursor():
-    global cx, cy
-    pprint("\x1b[%d;%dH" % (cy+1, cx+1))
+    global cx, cy, roff, coff
+    pprint("\x1b[%d;%dH" % (cy - roff + 1, cx - coff + 1))
+
+
+""" file handling """
+
+
+def load_file(filename):
+    global fileLoaded, fileRows
+    try:
+        with open(filename, 'r') as file:
+            fileRows = file.read().split('\n')
+        fileLoaded = True
+    except:
+        pexit("error opening %s\n" % filename)
