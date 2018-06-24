@@ -43,4 +43,7 @@ def getch():
 
 # get rows, cols
 def get_terminal_size():
-    return list(map(int, os.popen('stty size', 'r').read().split()))
+    s = list(map(int, os.popen('stty size', 'r').read().split()))
+    if not s:
+        s = [24, 80]
+    return s
