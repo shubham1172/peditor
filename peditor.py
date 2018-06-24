@@ -3,17 +3,14 @@
 """
 peditor.py: main entry point for peditor
 """
-from utils import getch, pprint
-
-__version__ = "0.0.1"
+from editor import init, read_key, refresh_screen
 
 
 def main():
+    init()
     while True:
-        c = getch()
-        pprint(c, ord(c))
-        if c == 'q':
-            break
+        refresh_screen()
+        read_key()
 
 
 if __name__ == "__main__":
