@@ -4,6 +4,7 @@ editor.py: editor functions
 from keys import EditorKeys
 from utils import getch, ctrl_key, pexit, pprint, get_terminal_size
 
+
 def init():
     global _rows, _cols, cx, cy, \
         fileLoaded, fileRows, roff, coff
@@ -152,13 +153,13 @@ def move_cursor(c):
             cy -= 1
             cx = len(fileRows[cy - roff])
     elif c == EditorKeys.ARROW_RIGHT:
-        if cx < len(fileRows[cy - roff]):
+        if (cy - roff) < len(fileRows) and cx < len(fileRows[cy - roff]):
             cx += 1
-        elif cy < len(fileRows):
+        elif (cy - roff) < len(fileRows) and cy < len(fileRows):
             cy += 1
             cx = 0
 
-    if cx > len(fileRows[cy - roff]):
+    if (cy - roff) < len(fileRows) and cx > len(fileRows[cy - roff]):
         cx = len(fileRows[cy - roff])
 
 
