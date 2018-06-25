@@ -19,3 +19,5 @@ class EditorKeys(AutoNumber):
     HOME_KEY = ()
     END_KEY = ()
     DEL_KEY = ()
+    BACKSPACE = ()
+    TAB_KEY = ()

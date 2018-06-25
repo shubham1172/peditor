@@ -11,7 +11,7 @@ def main():
     init()
     if len(sys.argv) >= 2:
         load_file(sys.argv[1])
-    set_status_message("HELP: CTRL-q to quit")
+    set_status_message("HELP: CTRL-q to quit | CTRL-s to save")
     while True:
         refresh_screen()
         read_key()

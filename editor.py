@@ -3,23 +3,27 @@ editor.py: editor functions
 """
 import time
 from keys import EditorKeys
-from utils import getch, ctrl_key, pexit, pprint, get_terminal_size
+from utils import getch, ctrl_key, pexit, pprint, get_terminal_size, \
+    convert_rows_to_string, convert_string_to_rows
 
 
 def init():
     global _rows, _cols, cx, cy, \
         fileLoaded, fileRows, roff, coff, \
-        file_name, status_message, status_message_time
+        file_name, status_message, status_message_time, \
+        dirty, quit_times
     cx, cy = 0, 0   # curr cursor location
     _rows, _cols = get_terminal_size()
     _rows -= 2      # status and message bar
     fileLoaded = False
     fileRows = []
-    roff = 0
-    coff = 0
+    roff = 0        # row coefficient
+    coff = 0        # col coefficient
     file_name = None
     status_message = ""
     status_message_time = 0
+    dirty = False   # indicate that file is modified
+    quit_times = 3  # number of times to press quit for closing dirty files
 
 
 """ input """
@@ -27,7 +31,11 @@ def init():
 
 def raw_read():
     c = getch()
-    if c == '\x1b':         # ESC character
+    if c == chr(127):
+        return EditorKeys.BACKSPACE
+    elif c == '\t':
+        return EditorKeys.TAB_KEY
+    elif c == '\x1b':         # ESC character
         c1 = getch()
         c2 = getch()
         if (not c1) or (not c2):
@@ -74,10 +82,20 @@ def raw_read():
 
 
 def read_key():
-    global _rows, _cols, cx, cy, roff, fileRows
+    global _rows, _cols, cx, cy, roff, fileRows, dirty, quit_times
     c = raw_read()
     if c == ctrl_key('q'):
-        pexit()
+        if dirty and quit_times > 0:
+            set_status_message("WARNING: File has unsaved changes. "
+                               "Press CTRL-q %d more time(s) to quit" % quit_times)
+            quit_times -= 1
+        else:
+            pexit()
+    elif c == ctrl_key('s'):
+        save_file()
+    elif c in ('\r', '\n'):
+        # TODO
+        pass
     elif c in (EditorKeys.ARROW_UP,
                EditorKeys.ARROW_LEFT,
                EditorKeys.ARROW_RIGHT,
@@ -87,7 +105,6 @@ def read_key():
                EditorKeys.PAGE_DOWN):
         if c == EditorKeys.PAGE_UP:
             cy = roff
-
         times = _rows
         while times > 0:
             move_cursor(EditorKeys.ARROW_UP if c == EditorKeys.PAGE_UP
@@ -98,6 +115,18 @@ def read_key():
     elif c == EditorKeys.END_KEY:
         if cy < len(fileRows):
             cx = len(fileRows[cy])
+    elif c in (EditorKeys.BACKSPACE, EditorKeys.DEL_KEY, ctrl_key('h')):
+        if c == EditorKeys.DEL_KEY:
+            move_cursor(EditorKeys.ARROW_RIGHT)
+        delete_char()
+    elif c in (ctrl_key('l'), '\x1b'):
+        # TODO
+        pass
+    elif c == EditorKeys.TAB_KEY:
+        for _ in range(4):
+            insert_char(' ')
+    else:
+        insert_char(c)
 
 
 """ screen """
@@ -144,10 +173,12 @@ def draw_rows():
 
 
 def draw_status_bar():
-    global file_name, _cols, fileRows, cy
+    global file_name, _cols, fileRows, cy, dirty
     pprint("\x1b[7m")  # invert colors
     s = file_name if file_name else "[No Name]"
-    left = "%s - %d lines" % (s[0:20], len(fileRows))
+    left = "%s - %d lines %s" % (s[0:20],
+                                 len(fileRows),
+                                 "(modified)" if dirty else "")
     right = "%d/%d" % (cy + 1, len(fileRows))
     pad = " "*(_cols-len(left)-len(right))
     display_string = left + pad + right
@@ -167,6 +198,39 @@ def draw_message_bar():
     pprint("\x1b[K")    # clear the line
     if (time.time() - status_message_time) < 5:
         pprint(status_message[0:_cols])
+
+
+def insert_char_at_row(row, at, c):
+    global fileRows, dirty
+    if at < 0 or at > len(fileRows[row]):
+        at = len(fileRows[row])
+    fileRows[row] = fileRows[row][0:at] + c + fileRows[row][at:]
+    dirty = True
+
+
+def insert_char(c):
+    global cx, cy, fileRows
+    if cy == len(fileRows):
+        fileRows.append("")
+    insert_char_at_row(cy, cx, c)
+    cx += 1
+
+
+def delete_char_at_row(row, at):
+    global fileRows, dirty
+    if at < 0 or at >= len(fileRows[row]):
+        return
+    fileRows[row] = fileRows[row][0:at] + fileRows[row][at+1:]
+    dirty = True
+
+
+def delete_char():
+    global cx, cy, fileRows
+    if cy == len(fileRows):
+        return
+    if cx > 0:
+        delete_char_at_row(cy, cx - 1)
+        cx -= 1
 
 
 """ cursor """
@@ -211,11 +275,26 @@ def update_cursor():
 
 
 def load_file(filename):
-    global fileLoaded, fileRows, file_name
+    global fileLoaded, fileRows, file_name, dirty
     try:
         with open(filename, 'r') as file:
-            fileRows = file.read().split('\n')
+            fileRows = convert_string_to_rows(file.read())
         fileLoaded = True
         file_name = filename
-    except:
+    except IOException:
         pexit("error opening %s\n" % filename)
+    dirty = False
+
+
+def save_file():
+    global fileRows, file_name, dirty
+    if not file_name:
+        return
+    try:
+        with open(file_name, 'r+') as file:
+            text = convert_rows_to_string(fileRows)
+            file.write(text)
+            set_status_message("%d bytes written to disk." % len(text))
+    except IOException as e:
+        set_status_message("error writing to %s\n - %s" % (file_name, str(e)))
+    dirty = False

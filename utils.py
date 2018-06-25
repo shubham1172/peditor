@@ -47,3 +47,12 @@ def get_terminal_size():
     if not s:
         s = [24, 80]
     return s
+
+
+# convert string to rows
+def convert_string_to_rows(s):
+    return s.split('\n')
+
+# convert rows to string
+def convert_rows_to_string(rows):
+    return '\n'.join(rows)
