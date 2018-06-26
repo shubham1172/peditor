@@ -421,7 +421,7 @@ def update_cursor():
 def load_file(filename):
     global fileLoaded, fileRows, file_name, dirty
     try:
-        with open(filename, 'r') as file:
+        with open(filename, 'w+') as file:
             fileRows = convert_string_to_rows(file.read())
         fileLoaded = True
         file_name = filename
