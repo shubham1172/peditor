@@ -94,8 +94,7 @@ def read_key():
     elif c == ctrl_key('s'):
         save_file()
     elif c in ('\r', '\n'):
-        # TODO
-        pass
+        insert_new_line()
     elif c in (EditorKeys.ARROW_UP,
                EditorKeys.ARROW_LEFT,
                EditorKeys.ARROW_RIGHT,
@@ -200,6 +199,9 @@ def draw_message_bar():
         pprint(status_message[0:_cols])
 
 
+""" editor """
+
+
 def insert_char_at_row(row, at, c):
     global fileRows, dirty
     if at < 0 or at > len(fileRows[row]):
@@ -228,9 +230,43 @@ def delete_char():
     global cx, cy, fileRows
     if cy == len(fileRows):
         return
+    if cy == 0 and cx == 0:
+        return
     if cx > 0:
         delete_char_at_row(cy, cx - 1)
         cx -= 1
+    else:
+        cx = len(fileRows[cy-1])
+        fileRows[cy-1] += fileRows[cy]
+        delete_row(cy)
+        cy -= 1
+
+
+def delete_row(at):
+    global fileRows, dirty
+    if at < 0 or at >= len(fileRows):
+        return
+    fileRows = fileRows[0:at] + fileRows[at+1:]
+    dirty = True
+
+
+def insert_row(at, s):
+    global fileRows, dirty
+    if at < 0 or at > len(fileRows):
+        return
+    fileRows = fileRows[0:at] + [s] + fileRows[at:]
+    dirty = True
+
+
+def insert_new_line():
+    global cx, cy, fileRows
+    if cx == 0:
+        insert_row(cy, "")
+    else:
+        insert_row(cy+1, fileRows[cy][cx:])
+        fileRows[cy] = fileRows[cy][0:cx]
+    cx = 0
+    cy += 1
 
 
 """ cursor """
@@ -281,7 +317,7 @@ def load_file(filename):
             fileRows = convert_string_to_rows(file.read())
         fileLoaded = True
         file_name = filename
-    except IOException:
+    except IOError:
         pexit("error opening %s\n" % filename)
     dirty = False
 
@@ -295,6 +331,6 @@ def save_file():
             text = convert_rows_to_string(fileRows)
             file.write(text)
             set_status_message("%d bytes written to disk." % len(text))
-    except IOException as e:
+    except IOError as e:
         set_status_message("error writing to %s\n - %s" % (file_name, str(e)))
     dirty = False
