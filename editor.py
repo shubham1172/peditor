@@ -26,6 +26,12 @@ def init():
     quit_times = 3  # number of times to press quit for closing dirty files
 
 
+def reset_dirty():
+    global dirty, quit_times
+    dirty = False
+    quit_times = 3
+
+
 """ input """
 
 
@@ -157,15 +163,15 @@ def refresh_screen():
 
 
 def draw_rows():
-    global _rows, _cols, fileLoaded, fileRows, roff, coff
+    global _rows, _cols, fileLoaded, fileRows, roff, coff, dirty
     welcome_message = "peditor -- welcome"
     for row in range(_rows):
         file_row = row + roff
-        if not fileLoaded:
+        if not fileLoaded and not dirty:
             pprint("~ ")
         if file_row < len(fileRows):
             pprint(fileRows[file_row][coff:coff+_cols])
-        if row == _rows//3 and not fileLoaded:
+        if row == _rows//3 and not fileLoaded and not dirty:
             pad_string = " "*((_cols - len(welcome_message)) // 2)
             pprint(pad_string, welcome_message)
         pprint("\n")
@@ -319,7 +325,7 @@ def load_file(filename):
         file_name = filename
     except IOError:
         pexit("error opening %s\n" % filename)
-    dirty = False
+    reset_dirty()
 
 
 def save_file():
@@ -333,4 +339,4 @@ def save_file():
             set_status_message("%d bytes written to disk." % len(text))
     except IOError as e:
         set_status_message("error writing to %s\n - %s" % (file_name, str(e)))
-    dirty = False
+    reset_dirty()
