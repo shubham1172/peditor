@@ -21,6 +21,11 @@ def pexit(message=None):
     sys.exit(0)
 
 
+# check if x is a control key
+def is_ctrl(char):
+    return 0 <= ord(char) <= 31
+
+
 # for x, return CTRL(x)'s ascii
 def ctrl_key(char):
     return chr(ord(char) & 0x1F)

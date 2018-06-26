@@ -3,7 +3,7 @@ editor.py: editor functions
 """
 import time
 from keys import EditorKeys
-from utils import getch, ctrl_key, pexit, pprint, get_terminal_size, \
+from utils import getch, is_ctrl, ctrl_key, pexit, pprint, get_terminal_size, \
     convert_rows_to_string, convert_string_to_rows
 
 
@@ -167,8 +167,6 @@ def draw_rows():
     welcome_message = "peditor -- welcome"
     for row in range(_rows):
         file_row = row + roff
-        if not fileLoaded and not dirty:
-            pprint("~ ")
         if file_row < len(fileRows):
             pprint(fileRows[file_row][coff:coff+_cols])
         if row == _rows//3 and not fileLoaded and not dirty:
@@ -203,6 +201,25 @@ def draw_message_bar():
     pprint("\x1b[K")    # clear the line
     if (time.time() - status_message_time) < 5:
         pprint(status_message[0:_cols])
+
+
+def prompt(message):
+    buf = ""
+    while True:
+        set_status_message(message, buf)
+        refresh_screen()
+        c = raw_read()
+        if c == EditorKeys.BACKSPACE:
+            buf = buf[0:-1]
+        elif c == ctrl_key('c'):
+            set_status_message("")
+            return None
+        elif c in ('\r', '\n'):
+            if len(buf) != 0:
+                set_status_message("")
+                return buf
+        elif type(c) != EditorKeys and not is_ctrl(c) and ord(c) < 128:
+            buf += c
 
 
 """ editor """
@@ -329,14 +346,18 @@ def load_file(filename):
 
 
 def save_file():
-    global fileRows, file_name, dirty
+    global fileLoaded, fileRows, file_name, dirty
     if not file_name:
-        return
+        file_name = prompt("Save as: (CTRL-c to cancel)")
+        if not file_name:
+            set_status_message("Save aborted")
+            return
     try:
-        with open(file_name, 'r+') as file:
+        with open(file_name, 'w+') as file:
             text = convert_rows_to_string(fileRows)
             file.write(text)
+            fileLoaded = True
             set_status_message("%d bytes written to disk." % len(text))
     except IOError as e:
-        set_status_message("error writing to %s\n - %s" % (file_name, str(e)))
+        set_status_message("Error writing to %s\n - %s" % (file_name, str(e)))
     reset_dirty()
