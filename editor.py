@@ -11,19 +11,21 @@ def init():
     global _rows, _cols, cx, cy, \
         fileLoaded, fileRows, roff, coff, \
         file_name, status_message, status_message_time, \
-        dirty, quit_times
-    cx, cy = 0, 0   # curr cursor location
+        dirty, quit_times, last_match, direction
+    cx, cy = 0, 0           # curr cursor location
     _rows, _cols = get_terminal_size()
-    _rows -= 2      # status and message bar
+    _rows -= 2              # status and message bar
     fileLoaded = False
     fileRows = []
-    roff = 0        # row coefficient
-    coff = 0        # col coefficient
+    roff = 0                # row coefficient
+    coff = 0                # col coefficient
     file_name = None
     status_message = ""
     status_message_time = 0
-    dirty = False   # indicate that file is modified
-    quit_times = 3  # number of times to press quit for closing dirty files
+    dirty = False           # indicate that file is modified
+    quit_times = 3          # number of times to press quit for closing dirty files
+    last_match = (0, -1)    # last match index (row, col)
+    direction = 1           # default search direction
 
 
 def reset_dirty():
@@ -99,6 +101,8 @@ def read_key():
             pexit()
     elif c == ctrl_key('s'):
         save_file()
+    elif c == ctrl_key('f'):
+        search()
     elif c in ('\r', '\n'):
         insert_new_line()
     elif c in (EditorKeys.ARROW_UP,
@@ -203,23 +207,104 @@ def draw_message_bar():
         pprint(status_message[0:_cols])
 
 
-def prompt(message):
+def prompt(message, callback):
     buf = ""
     while True:
-        set_status_message(message, buf)
+        set_status_message(message % buf)
         refresh_screen()
         c = raw_read()
         if c == EditorKeys.BACKSPACE:
             buf = buf[0:-1]
         elif c == ctrl_key('c'):
             set_status_message("")
+            if callback:
+                callback(buf, c)
             return None
         elif c in ('\r', '\n'):
             if len(buf) != 0:
                 set_status_message("")
+                if callback:
+                    callback(buf, c)
                 return buf
         elif type(c) != EditorKeys and not is_ctrl(c) and ord(c) < 128:
             buf += c
+
+        if callback:
+            callback(buf, c)
+
+
+""" search """
+
+
+def search():
+    global cx, cy, roff, coff
+    # save the values
+    tcx = cx
+    tcy = cy
+    t_roff = roff
+    t_coff = coff
+    query = prompt("Search: %s (CTRL-c to cancel)", search_callback)
+    if not query:
+        # restore
+        cx = tcx
+        cy = tcy
+        roff = t_roff
+        coff = t_coff
+
+
+def search_callback(query, char):
+    global cx, cy, coff, roff, _cols, fileRows, last_match, direction
+    if char in ('\r', '\n', ctrl_key('c')):
+        last_match = (0, -1)
+        direction = 1
+        return
+    elif char in (EditorKeys.ARROW_RIGHT, EditorKeys.ARROW_DOWN):
+        direction = 1
+    elif char in (EditorKeys.ARROW_LEFT, EditorKeys.ARROW_UP):
+        direction = -1
+    else:   # characters
+        last_match = (0, -1)
+        direction = 1
+
+    """
+    last_match[0] gives us the row we need to search in for
+    last_match[1] gives us the starting point for the search
+    direction decides which part of the row is to be searched
+    """
+    if last_match == (0, -1):
+        direction = 1
+    curr = last_match[0]
+    counter = 0
+    while True:
+        if counter == len(fileRows)-1:
+            break
+        if curr == -1:
+            curr = len(fileRows) - 1
+        elif curr == len(fileRows):
+            curr = 0
+
+        row = fileRows[curr]
+        off = 0
+        if direction == 1:
+            s = row[last_match[1]+1:]
+            idx = s.lower().find(query.lower())
+            off = last_match[1]+1
+        else:
+            s = row[0:last_match[1]]
+            idx = s.lower().rfind(query.lower())
+        if idx > 0:
+            last_match = (curr, idx+off)
+            cy = curr
+            cx = last_match[1]
+            # adjust offsets
+            if (cx - coff) > (_cols - 5):
+                coff = cx
+            roff = cy
+            break
+        else:
+            curr += direction
+            counter += 1
+            last_match = (last_match[0], -1)
 
 
 """ editor """
@@ -348,7 +433,7 @@ def load_file(filename):
 def save_file():
     global fileLoaded, fileRows, file_name, dirty
     if not file_name:
-        file_name = prompt("Save as: (CTRL-c to cancel)")
+        file_name = prompt("Save as: %s (CTRL-c to cancel)", None)
         if not file_name:
             set_status_message("Save aborted")
             return
