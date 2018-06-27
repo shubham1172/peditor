@@ -8,17 +8,17 @@ from utils import getch, is_ctrl, ctrl_key, pexit, pprint, get_terminal_size, \
 
 
 def init():
-    global _rows, _cols, cx, cy, \
-        fileLoaded, fileRows, roff, coff, \
+    global screen_rows, screen_cols, cx, cy, \
+        file_loaded, file_rows, row_offset, column_offset, \
         file_name, status_message, status_message_time, \
         dirty, quit_times, last_match, direction
     cx, cy = 0, 0           # curr cursor location
-    _rows, _cols = get_terminal_size()
-    _rows -= 2              # status and message bar
-    fileLoaded = False
-    fileRows = []
-    roff = 0                # row coefficient
-    coff = 0                # col coefficient
+    screen_rows, screen_cols = get_terminal_size()
+    screen_rows -= 2        # status and message bar
+    file_loaded = False
+    file_rows = []
+    row_offset = 0          # row coefficient
+    column_offset = 0       # col coefficient
     file_name = None
     status_message = ""
     status_message_time = 0
@@ -90,7 +90,7 @@ def raw_read():
 
 
 def read_key():
-    global _rows, _cols, cx, cy, roff, fileRows, dirty, quit_times
+    global screen_rows, screen_cols, cx, cy, row_offset, file_rows, dirty, quit_times
     c = raw_read()
     if c == ctrl_key('q'):
         if dirty and quit_times > 0:
@@ -113,8 +113,8 @@ def read_key():
     elif c in (EditorKeys.PAGE_UP,
                EditorKeys.PAGE_DOWN):
         if c == EditorKeys.PAGE_UP:
-            cy = roff
-        times = _rows
+            cy = row_offset
+        times = screen_rows
         while times > 0:
             move_cursor(EditorKeys.ARROW_UP if c == EditorKeys.PAGE_UP
                         else EditorKeys.ARROW_DOWN)
@@ -122,8 +122,8 @@ def read_key():
     elif c == EditorKeys.HOME_KEY:
         cx = 0
     elif c == EditorKeys.END_KEY:
-        if cy < len(fileRows):
-            cx = len(fileRows[cy])
+        if cy < len(file_rows):
+            cx = len(file_rows[cy])
     elif c in (EditorKeys.BACKSPACE, EditorKeys.DEL_KEY, ctrl_key('h')):
         if c == EditorKeys.DEL_KEY:
             move_cursor(EditorKeys.ARROW_RIGHT)
@@ -142,16 +142,16 @@ def read_key():
 
 
 def scroll_editor():
-    global cy, roff, _rows, \
-            cx, coff, _cols
-    if cy < roff:
-        roff = cy
-    if cy >= (roff + _rows):
-        roff = cy - _rows + 1
-    if cx < coff:
-        coff = cx
-    if cx >= (coff + _cols):
-        coff = cx - _cols + 1
+    global cy, row_offset, screen_rows, \
+            cx, column_offset, screen_cols
+    if cy < row_offset:
+        row_offset = cy
+    if cy >= (row_offset + screen_rows):
+        row_offset = cy - screen_rows + 1
+    if cx < column_offset:
+        column_offset = cx
+    if cx >= (column_offset + screen_cols):
+        column_offset = cx - screen_cols + 1
 
 
 def refresh_screen():
@@ -167,29 +167,29 @@ def refresh_screen():
 
 
 def draw_rows():
-    global _rows, _cols, fileLoaded, fileRows, roff, coff, dirty
+    global screen_rows, screen_cols, file_loaded, file_rows, row_offset, column_offset, dirty
     welcome_message = "peditor -- welcome"
-    for row in range(_rows):
-        file_row = row + roff
-        if file_row < len(fileRows):
-            pprint(fileRows[file_row][coff:coff+_cols])
-        if row == _rows//3 and not fileLoaded and not dirty:
-            pad_string = " "*((_cols - len(welcome_message)) // 2)
+    for row in range(screen_rows):
+        file_row = row + row_offset
+        if file_row < len(file_rows):
+            pprint(file_rows[file_row][column_offset:column_offset+screen_cols])
+        if row == screen_rows//3 and not file_loaded and not dirty:
+            pad_string = " "*((screen_cols - len(welcome_message)) // 2)
             pprint(pad_string, welcome_message)
         pprint("\n")
 
 
 def draw_status_bar():
-    global file_name, _cols, fileRows, cy, dirty
+    global file_name, screen_cols, file_rows, cy, dirty
     pprint("\x1b[7m")  # invert colors
     s = file_name if file_name else "[No Name]"
     left = "%s - %d lines %s" % (s[0:20],
-                                 len(fileRows),
+                                 len(file_rows),
                                  "(modified)" if dirty else "")
-    right = "%d/%d" % (cy + 1, len(fileRows))
-    pad = " "*(_cols-len(left)-len(right))
+    right = "%d/%d" % (cy + 1, len(file_rows))
+    pad = " "*(screen_cols-len(left)-len(right))
     display_string = left + pad + right
-    pprint(display_string[0:_cols])
+    pprint(display_string[0:screen_cols])
     pprint("\x1b[m")   # restore colors
     pprint("\n")
 
@@ -201,10 +201,10 @@ def set_status_message(*args):
 
 
 def draw_message_bar():
-    global status_message, status_message_time, _cols
+    global status_message, status_message_time, screen_cols
     pprint("\x1b[K")    # clear the line
     if (time.time() - status_message_time) < 5:
-        pprint(status_message[0:_cols])
+        pprint(status_message[0:screen_cols])
 
 
 def prompt(message, callback):
@@ -237,23 +237,23 @@ def prompt(message, callback):
 
 
 def search():
-    global cx, cy, roff, coff
+    global cx, cy, row_offset, column_offset
     # save the values
     tcx = cx
     tcy = cy
-    t_roff = roff
-    t_coff = coff
+    t_row_offset = row_offset
+    t_column_offset = column_offset
     query = prompt("Search: %s (CTRL-c to cancel)", search_callback)
     if not query:
         # restore
         cx = tcx
         cy = tcy
-        roff = t_roff
-        coff = t_coff
+        row_offset = t_row_offset
+        column_offset = t_column_offset
 
 
 def search_callback(query, char):
-    global cx, cy, coff, roff, _cols, fileRows, last_match, direction
+    global cx, cy, column_offset, row_offset, screen_cols, file_rows, last_match, direction
     if char in ('\r', '\n', ctrl_key('c')):
         last_match = (0, -1)
         direction = 1
@@ -276,14 +276,14 @@ def search_callback(query, char):
     curr = last_match[0]
     counter = 0
     while True:
-        if counter == len(fileRows)-1:
+        if counter == len(file_rows)-1:
             break
         if curr == -1:
-            curr = len(fileRows) - 1
-        elif curr == len(fileRows):
+            curr = len(file_rows) - 1
+        elif curr == len(file_rows):
             curr = 0
 
-        row = fileRows[curr]
+        row = file_rows[curr]
         off = 0
         if direction == 1:
             s = row[last_match[1]+1:]
@@ -297,9 +297,9 @@ def search_callback(query, char):
             cy = curr
             cx = last_match[1]
             # adjust offsets
-            if (cx - coff) > (_cols - 5):
-                coff = cx
-            roff = cy
+            if (cx - column_offset) > (screen_cols - 5):
+                column_offset = cx
+            row_offset = cy
             break
         else:
             curr += direction
@@ -311,32 +311,32 @@ def search_callback(query, char):
 
 
 def insert_char_at_row(row, at, c):
-    global fileRows, dirty
-    if at < 0 or at > len(fileRows[row]):
-        at = len(fileRows[row])
-    fileRows[row] = fileRows[row][0:at] + c + fileRows[row][at:]
+    global file_rows, dirty
+    if at < 0 or at > len(file_rows[row]):
+        at = len(file_rows[row])
+    file_rows[row] = file_rows[row][0:at] + c + file_rows[row][at:]
     dirty = True
 
 
 def insert_char(c):
-    global cx, cy, fileRows
-    if cy == len(fileRows):
-        fileRows.append("")
+    global cx, cy, file_rows
+    if cy == len(file_rows):
+        file_rows.append("")
     insert_char_at_row(cy, cx, c)
     cx += 1
 
 
 def delete_char_at_row(row, at):
-    global fileRows, dirty
-    if at < 0 or at >= len(fileRows[row]):
+    global file_rows, dirty
+    if at < 0 or at >= len(file_rows[row]):
         return
-    fileRows[row] = fileRows[row][0:at] + fileRows[row][at+1:]
+    file_rows[row] = file_rows[row][0:at] + file_rows[row][at+1:]
     dirty = True
 
 
 def delete_char():
-    global cx, cy, fileRows
-    if cy == len(fileRows):
+    global cx, cy, file_rows
+    if cy == len(file_rows):
         return
     if cy == 0 and cx == 0:
         return
@@ -344,35 +344,35 @@ def delete_char():
         delete_char_at_row(cy, cx - 1)
         cx -= 1
     else:
-        cx = len(fileRows[cy-1])
-        fileRows[cy-1] += fileRows[cy]
+        cx = len(file_rows[cy-1])
+        file_rows[cy-1] += file_rows[cy]
         delete_row(cy)
         cy -= 1
 
 
 def delete_row(at):
-    global fileRows, dirty
-    if at < 0 or at >= len(fileRows):
+    global file_rows, dirty
+    if at < 0 or at >= len(file_rows):
         return
-    fileRows = fileRows[0:at] + fileRows[at+1:]
+    file_rows = file_rows[0:at] + file_rows[at+1:]
     dirty = True
 
 
 def insert_row(at, s):
-    global fileRows, dirty
-    if at < 0 or at > len(fileRows):
+    global file_rows, dirty
+    if at < 0 or at > len(file_rows):
         return
-    fileRows = fileRows[0:at] + [s] + fileRows[at:]
+    file_rows = file_rows[0:at] + [s] + file_rows[at:]
     dirty = True
 
 
 def insert_new_line():
-    global cx, cy, fileRows
+    global cx, cy, file_rows
     if cx == 0:
         insert_row(cy, "")
     else:
-        insert_row(cy+1, fileRows[cy][cx:])
-        fileRows[cy] = fileRows[cy][0:cx]
+        insert_row(cy+1, file_rows[cy][cx:])
+        file_rows[cy] = file_rows[cy][0:cx]
     cx = 0
     cy += 1
 
@@ -381,49 +381,49 @@ def insert_new_line():
 
 
 def move_cursor(c):
-    global cx, cy, _rows, _cols, roff, coff, fileRows
+    global cx, cy, screen_rows, screen_cols, row_offset, column_offset, file_rows
 
-    row = None if cy >= len(fileRows) else fileRows[cy]
+    row = None if cy >= len(file_rows) else file_rows[cy]
 
     if c == EditorKeys.ARROW_UP:
         if cy != 0:
             cy -= 1
     elif c == EditorKeys.ARROW_DOWN:
-        if cy < len(fileRows) - 1:
+        if cy < len(file_rows) - 1:
             cy += 1
     elif c == EditorKeys.ARROW_LEFT:
         if cx != 0:
             cx -= 1
         elif cy > 0:
             cy -= 1
-            cx = len(fileRows[cy])
+            cx = len(file_rows[cy])
     elif c == EditorKeys.ARROW_RIGHT:
-        if row and cx < len(fileRows[cy]):
+        if row and cx < len(file_rows[cy]):
             cx += 1
-        elif row and cy < len(fileRows):
+        elif row and cy < len(file_rows):
             cy += 1
             cx = 0
 
-    row = "" if cy >= len(fileRows) else fileRows[cy]
+    row = "" if cy >= len(file_rows) else file_rows[cy]
 
     if cx > len(row):
         cx = len(row)
 
 
 def update_cursor():
-    global cx, cy, roff, coff
-    pprint("\x1b[%d;%dH" % (cy - roff + 1, cx - coff + 1))
+    global cx, cy, row_offset, column_offset
+    pprint("\x1b[%d;%dH" % (cy - row_offset + 1, cx - column_offset + 1))
 
 
 """ file handling """
 
 
 def load_file(filename):
-    global fileLoaded, fileRows, file_name, dirty
+    global file_loaded, file_rows, file_name, dirty
     try:
         with open(filename, 'w+') as file:
-            fileRows = convert_string_to_rows(file.read())
-        fileLoaded = True
+            file_rows = convert_string_to_rows(file.read())
+        file_loaded = True
         file_name = filename
     except IOError:
         pexit("error opening %s\n" % filename)
@@ -431,7 +431,7 @@ def load_file(filename):
 
 
 def save_file():
-    global fileLoaded, fileRows, file_name, dirty
+    global file_loaded, file_rows, file_name, dirty
     if not file_name:
         file_name = prompt("Save as: %s (CTRL-c to cancel)", None)
         if not file_name:
@@ -439,9 +439,9 @@ def save_file():
             return
     try:
         with open(file_name, 'w+') as file:
-            text = convert_rows_to_string(fileRows)
+            text = convert_rows_to_string(file_rows)
             file.write(text)
-            fileLoaded = True
+            file_loaded = True
             set_status_message("%d bytes written to disk." % len(text))
     except IOError as e:
         set_status_message("Error writing to %s\n - %s" % (file_name, str(e)))
