@@ -9,8 +9,13 @@
 ### Installation
 ```sh
 $ git clone https://github.com/shubham1172/peditor.git
+$ cd peditor
 $ sudo ./install.sh
 ``` 
+To remove the build,
+```sh
+$ ./clean.sh
+```
 ### Running
 ```sh
 $ peditor [filename]
