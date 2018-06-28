@@ -1,8 +1,10 @@
 
 <h1 align="center"> peditor </h1>
-<div align="center">A pythonian text editor</div>
+<p align="center">A pythonian text editor</p>
 
-<center><img src="./docs/images/peditor.png"></center> 
+<p align="center">
+  <img src ="./docs/images/peditor.png" />
+</p>
 
 ### Requirements
 * Linux
