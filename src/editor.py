@@ -2,20 +2,23 @@
 editor.py: editor functions
 """
 import time
+import re
 from keys import EditorKeys
 from utils import getch, is_ctrl, ctrl_key, pexit, pprint, get_terminal_size, \
     convert_rows_to_string, convert_string_to_rows
+from syntax import syntax
 
 
 def init():
     global screen_rows, screen_cols, cx, cy, \
         file_loaded, file_rows, row_offset, column_offset, \
-        file_name, status_message, status_message_time, \
+        file_name, file_type, status_message, status_message_time, \
         dirty, quit_times, last_match, direction
     cx, cy = 0, 0           # curr cursor location
     screen_rows, screen_cols = get_terminal_size()
     screen_rows -= 2        # status and message bar
     file_loaded = False
+    file_type = None
     file_rows = []
     row_offset = 0          # row coefficient
     column_offset = 0       # col coefficient
@@ -172,7 +175,7 @@ def draw_rows():
     for row in range(screen_rows):
         file_row = row + row_offset
         if file_row < len(file_rows):
-            pprint(file_rows[file_row][column_offset:column_offset+screen_cols])
+            render_row(file_rows[file_row][column_offset:column_offset+screen_cols])
         if row == screen_rows//3 and not file_loaded and not dirty:
             pad_string = " "*((screen_cols - len(welcome_message)) // 2)
             pprint(pad_string, welcome_message)
@@ -180,7 +183,7 @@ def draw_rows():
 
 
 def draw_status_bar():
-    global file_name, screen_cols, file_rows, cy, dirty
+    global file_name, screen_cols, file_rows, cy, dirty, file_type
     pprint("\x1b[7m")  # invert colors
     s = file_name if file_name else "[No Name]"
     left = "%s - %d lines %s" % (s[0:20],
@@ -231,6 +234,53 @@ def prompt(message, callback):
 
         if callback:
             callback(buf, c)
+
+
+""" syntax highlighting """
+
+
+def render_row(row):
+    global file_type
+    tokens = re.split(r'(\s?)', row)
+    comment = False
+    string = False
+    for token in tokens:
+        if file_type and file_type in syntax.keys():
+            if comment:
+                printf(token, color='red')
+            elif string:
+                printf(token, color='green')
+            elif token == syntax[file_type]["comment"]:
+                printf(token, color='red')
+                comment = True
+            elif token in syntax[file_type]["keywords"]:
+                printf(token, color='yellow')
+            else:
+                for c in token:
+                    if c.isdigit():
+                        printf(c, color='blue')
+                    else:
+                        printf(c)
+        else:
+            pprint(token)
+
+
+def printf(s, color=None):
+    code = 0
+    if color == 'red':
+        code = 1
+    elif color == 'green':
+        code = 2
+    elif color == 'yellow':
+        code = 3
+    elif color == 'blue':
+        code = 4
+    pre = '\x1b[3%dm' % code
+    suf = '\x1b[39m'
+    if color:
+        pprint("%s%s%s" % (pre, s, suf))
+    else:
+        pprint(s)
 
 
 """ search """
@@ -419,19 +469,20 @@ def update_cursor():
 
 
 def load_file(filename):
-    global file_loaded, file_rows, file_name, dirty
+    global file_loaded, file_rows, file_name, file_type
     try:
-        with open(filename, 'w+') as file:
+        with open(filename, 'r+') as file:
             file_rows = convert_string_to_rows(file.read())
         file_loaded = True
         file_name = filename
+        file_type = file_name.split(".")[-1]
     except IOError:
-        pexit("error opening %s\n" % filename)
+        pexit("error opening %s: file doesn't exist or cannot be opened.\n" % filename)
     reset_dirty()
 
 
 def save_file():
-    global file_loaded, file_rows, file_name, dirty
+    global file_loaded, file_rows, file_name, file_type
     if not file_name:
         file_name = prompt("Save as: %s (CTRL-c to cancel)", None)
         if not file_name:
@@ -442,6 +493,7 @@ def save_file():
             text = convert_rows_to_string(file_rows)
             file.write(text)
             file_loaded = True
+            file_type = file_name.split(".")[-1]
             set_status_message("%d bytes written to disk." % len(text))
     except IOError as e:
         set_status_message("Error writing to %s\n - %s" % (file_name, str(e)))
