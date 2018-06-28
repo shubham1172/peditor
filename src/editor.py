@@ -471,7 +471,8 @@ def update_cursor():
 def load_file(filename):
     global file_loaded, file_rows, file_name, file_type
     try:
-        with open(filename, 'r+') as file:
+        with open(filename, 'a+') as file:
+            file.seek(0, 0)
             file_rows = convert_string_to_rows(file.read())
         file_loaded = True
         file_name = filename
