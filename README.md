@@ -1,6 +1,8 @@
 
 <h1 align="center"> peditor </h1>
-<p align="center">A pythonian text editor</p>
+<div align="center">A pythonian text editor</div>
+
+<center><img src="./docs/images/peditor.png"></center> 
 
 ### Requirements
 * Linux
@@ -22,8 +24,6 @@ $ peditor [filename]
 ```
 ### License
 peditor is licensed under the [MIT License](https://github.com/shubham1172/peditor/blob/master/LICENSE).
-
-
 
 
 
