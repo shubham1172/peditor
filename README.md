@@ -10,11 +10,11 @@
 ```sh
 $ git clone https://github.com/shubham1172/peditor.git
 $ cd peditor
-$ sudo ./install.sh
+$ ./scripts/install.sh
 ``` 
 To remove the build,
 ```sh
-$ ./clean.sh
+$ ./scripts/clean.sh
 ```
 ### Running
 ```sh

@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-rm -r ./build ./dist ./peditor.spec
+rm -r ./build ./dist peditor.spec
