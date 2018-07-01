@@ -20,7 +20,7 @@ syntax = {
                      'switch', 'case', 'catch', 'throw', 'throws',
                      'import', 'extends', 'class', 'public', 'return',
                      'try', 'short', 'super', 'this', 'char'],
-        "comment": '/'
+        "comment": '//'
     },
     "c": {
         "keywords": ['auto', 'break', 'case', 'char', 'const', 'continue',
