@@ -241,7 +241,7 @@ def prompt(message, callback):
 
 def render_row(row):
     global file_type
-    tokens = re.split(r'(\s?)', row)
+    tokens = re.split(r'([^A-Za-z0-9_-]?)', row)
     comment = False
     string = False
     for token in tokens:
@@ -255,12 +255,10 @@ def render_row(row):
                 comment = True
             elif token in syntax[file_type]["keywords"]:
                 printf(token, color='yellow')
+            elif token.isdigit():
+                printf(token, color='blue')
             else:
-                for c in token:
-                    if c.isdigit():
-                        printf(c, color='blue')
-                    else:
-                        printf(c)
+                printf(token)
         else:
             pprint(token)
 
